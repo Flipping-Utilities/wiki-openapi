@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RuneScape Wiki Real-time Prices API — Scalar Reference</title>
+    <meta
+      name="description"
+      content="Interactive OpenAPI reference and playground for the RuneScape Wiki real-time Grand Exchange prices API (OSRS)."
+    />
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="https://cdn.jsdelivr.net/npm/@scalar/api-reference/favicon.svg"
+    />
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        background: #0b0d12;
+      }
+
+      /* ---- Floating action buttons (timestamp helper + wiki docs) ---- */
+      #ts-fab-group {
+        position: fixed;
+        right: 20px;
+        bottom: 20px;
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .ts-fab {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 10px 14px;
+        font: 600 13px/1 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        border-radius: 10px;
+        cursor: pointer;
+        text-decoration: none;
+        transition: transform 0.12s ease, box-shadow 0.12s ease, background 0.12s ease,
+          border-color 0.12s ease, color 0.12s ease;
+      }
+
+      #ts-launcher {
+        color: #f5f3ef;
+        background: linear-gradient(135deg, #6d4aff 0%, #b18cff 100%);
+        border: none;
+        box-shadow: 0 6px 20px rgba(109, 74, 255, 0.45);
+      }
+      #ts-launcher:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 8px 24px rgba(109, 74, 255, 0.55);
+      }
+      #ts-launcher[hidden] { display: none; }
+
+      /* Secondary outline style — used for the external "Wiki docs" link */
+      .ts-fab--ghost {
+        color: #e7e3dc;
+        background: #15171f;
+        border: 1px solid #333644;
+        box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+      }
+      .ts-fab--ghost:hover {
+        transform: translateY(-1px);
+        border-color: #6d4aff;
+        color: #fff;
+      }
+
+      #ts-panel {
+        position: fixed;
+        right: 20px;
+        bottom: 20px;
+        z-index: 9999;
+        width: 320px;
+        font: 14px/1.45 ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        color: #e7e3dc;
+        background: #15171f;
+        border: 1px solid #2a2d3a;
+        border-radius: 12px;
+        box-shadow: 0 18px 48px rgba(0, 0, 0, 0.55);
+      }
+      #ts-panel[hidden] { display: none; }
+
+      #ts-panel header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 14px;
+        font-weight: 700;
+        font-size: 13px;
+        letter-spacing: 0.02em;
+        color: #fff;
+        background: linear-gradient(135deg, #6d4aff 0%, #b18cff 100%);
+        border-radius: 12px 12px 0 0;
+      }
+      #ts-panel header button {
+        background: rgba(255, 255, 255, 0.18);
+        color: #fff;
+        border: none;
+        width: 22px;
+        height: 22px;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 14px;
+        line-height: 1;
+      }
+      #ts-panel header button:hover { background: rgba(255, 255, 255, 0.3); }
+
+      #ts-panel .ts-body { padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+
+      #ts-panel label {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+        font-size: 12px;
+        color: #a8aabb;
+        font-weight: 600;
+      }
+
+      #ts-panel input,
+      #ts-panel select {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 8px 10px;
+        font: inherit;
+        color: #f0ede6;
+        background: #0f1117;
+        border: 1px solid #333644;
+        border-radius: 8px;
+        outline: none;
+      }
+      #ts-panel input:focus,
+      #ts-panel select:focus { border-color: #6d4aff; }
+      #ts-panel input::-webkit-calendar-picker-indicator { filter: invert(0.85); cursor: pointer; }
+
+      #ts-panel .ts-row { display: flex; gap: 8px; }
+      #ts-panel .ts-row button { flex: 1; }
+
+      #ts-panel button.ts-btn {
+        padding: 8px 10px;
+        font: inherit;
+        font-weight: 600;
+        color: #e7e3dc;
+        background: #232634;
+        border: 1px solid #333644;
+        border-radius: 8px;
+        cursor: pointer;
+      }
+      #ts-panel button.ts-btn:hover { background: #2c3040; }
+      #ts-panel button.ts-btn.primary {
+        color: #fff;
+        background: linear-gradient(135deg, #6d4aff 0%, #8a63ff 100%);
+        border-color: transparent;
+      }
+
+      #ts-output {
+        background: #0f1117;
+        border: 1px solid #333644;
+        border-radius: 8px;
+        padding: 10px 12px;
+        font-size: 13px;
+      }
+      #ts-output .ts-line { display: flex; justify-content: space-between; gap: 10px; align-items: center; }
+      #ts-output .ts-line + .ts-line { margin-top: 6px; }
+      #ts-output .ts-k { color: #8a8da0; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
+      #ts-output code { font: 600 14px ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace; color: #b9d1ff; }
+      #ts-output .ts-utc { color: #c9c5bd; font-size: 12px; }
+
+      #ts-status {
+        font-size: 12px;
+        padding: 6px 10px;
+        border-radius: 6px;
+        display: none;
+      }
+      #ts-status.ok { display: block; background: rgba(63, 176, 118, 0.12); color: #6fe0ad; }
+      #ts-status.warn { display: block; background: rgba(230, 162, 60, 0.12); color: #ffc97a; }
+
+      #ts-panel .ts-link {
+        text-align: center;
+        font-size: 12px;
+        color: #b18cff;
+        text-decoration: none;
+        padding: 4px 0;
+      }
+      #ts-panel .ts-link:hover { color: #d3bdff; }
+
+      #ts-hint { font-size: 11px; color: #6b6e7d; margin: 0; }
+    </style>
+  </head>
+  <body>
+    <!--
+      Scalar reads this script tag, fetches the spec at data-url, and renders the
+      full reference + interactive API client (playground).
+
+      data-configuration options:
+        - url:           path to the OpenAPI document
+        - theme:         alternate | default | purple | moon | solarized | mars | saturn | kepler
+        - darkMode:      force dark/light mode (true | false)
+        - layout:        modern | classic
+        - proxyUrl:      routes "Send" requests through Scalar's CORS proxy so the
+                         playground works against prices.runescape.wiki from a browser
+        - hideClientButton / hiddenClients: keep the API client visible
+        - defaultOpenAllTags: expand every tag group on load
+    -->
+    <script
+      id="api-reference"
+      data-url="./openapi.yaml"
+      data-configuration='{
+        "theme": "saturn",
+        "darkMode": true,
+        "layout": "modern",
+        "showSidebar": true,
+        "defaultOpenAllTags": true,
+        "hideClientButton": false,
+        "hiddenClients": false,
+        "hideTestRequestButton": false,
+        "proxyUrl": "https://proxy.scalar.com",
+        "metaData": {
+          "title": "RuneScape Wiki Real-time Prices API"
+        }
+      }'
+    ></script>
+
+    <!-- Latest standalone build of Scalar API Reference -->
+    <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
+
+    <!--
+      Timestamp helper: convert a picked datetime into the Unix timestamp expected
+      by /5m (must be divisible by 300) and /1h (must be divisible by 3600).
+      Self-contained — does not depend on Scalar.
+    -->
+    <div id="ts-fab-group">
+      <a
+        class="ts-fab ts-fab--ghost"
+        href="https://oldschool.runescape.wiki/w/RuneScape:Real-time_Prices"
+        target="_blank"
+        rel="noopener noreferrer"
+        title="Official API documentation on the OSRS Wiki"
+      >
+        Wiki docs &#8599;
+      </a>
+      <button id="ts-launcher" class="ts-fab" type="button">⏱ Timestamp helper</button>
+    </div>
+
+    <aside id="ts-panel" aria-label="Timestamp helper" hidden>
+      <header>
+        <span>Timestamp helper</span>
+        <button id="ts-close" type="button" aria-label="Close">×</button>
+      </header>
+      <div class="ts-body">
+        <label>
+          Endpoint
+          <select id="ts-window">
+            <option value="300">/5m — 5-minute (÷ 300)</option>
+            <option value="3600">/1h — 1-hour (÷ 3600)</option>
+            <option value="21600">/6h — 6-hour (÷ 21600)</option>
+            <option value="86400">/24h — 24-hour (÷ 86400)</option>
+          </select>
+        </label>
+
+        <label>
+          Date &amp; time <span style="font-weight:400;color:#6b6e7d">(your local timezone)</span>
+          <input id="ts-dt" type="datetime-local" step="300" />
+        </label>
+
+        <div class="ts-row">
+          <button id="ts-now" class="ts-btn" type="button">Use now</button>
+          <button id="ts-snap" class="ts-btn" type="button">Snap to boundary</button>
+        </div>
+
+        <div id="ts-output">
+          <div class="ts-line">
+            <span class="ts-k">Unix</span>
+            <code id="ts-unix">—</code>
+          </div>
+          <div class="ts-line">
+            <span class="ts-k">UTC</span>
+            <span class="ts-utc" id="ts-utc">—</span>
+          </div>
+        </div>
+
+        <div id="ts-status" role="status"></div>
+
+        <div class="ts-row">
+          <button id="ts-copy" class="ts-btn primary" type="button">Copy timestamp</button>
+          <a id="ts-link" class="ts-btn ts-link" target="_blank" rel="noopener" href="#">Open in API</a>
+        </div>
+
+        <p id="ts-hint">
+          Paste the copied value into the <code>timestamp</code> field of the Scalar playground.
+          The API rejects values that are not on a boundary.
+        </p>
+      </div>
+    </aside>
+
+    <script>
+      (function () {
+        const launcher = document.getElementById('ts-launcher');
+        const panel = document.getElementById('ts-panel');
+        const closeBtn = document.getElementById('ts-close');
+        const winSel = document.getElementById('ts-window');
+        const dtInput = document.getElementById('ts-dt');
+        const nowBtn = document.getElementById('ts-now');
+        const snapBtn = document.getElementById('ts-snap');
+        const copyBtn = document.getElementById('ts-copy');
+        const unixEl = document.getElementById('ts-unix');
+        const utcEl = document.getElementById('ts-utc');
+        const statusEl = document.getElementById('ts-status');
+        const linkEl = document.getElementById('ts-link');
+
+        const pad = (n) => String(n).padStart(2, '0');
+        const toLocalInput = (d) =>
+          `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+
+        function currentPeriod() {
+          return Number(winSel.value);
+        }
+
+        function endpointPath() {
+          const p = currentPeriod();
+          if (p === 300) return '5m';
+          if (p === 3600) return '1h';
+          if (p === 21600) return '6h';
+          if (p === 86400) return '24h';
+          return '5m';
+        }
+
+        function periodLabel() {
+          const p = currentPeriod();
+          if (p === 300) return '5-minute';
+          if (p === 3600) return '1-hour';
+          if (p === 21600) return '6-hour';
+          if (p === 86400) return '24-hour';
+          return '';
+        }
+
+        function recompute() {
+          const v = dtInput.value;
+          if (!v) {
+            unixEl.textContent = '—';
+            utcEl.textContent = '—';
+            statusEl.className = '';
+            statusEl.textContent = '';
+            linkEl.removeAttribute('href');
+            copyBtn.disabled = true;
+            return;
+          }
+          const d = new Date(v); // interpreted in the viewer's local timezone
+          if (isNaN(d.getTime())) {
+            unixEl.textContent = '—';
+            utcEl.textContent = '—';
+            return;
+          }
+          copyBtn.disabled = false;
+
+          const secs = Math.floor(d.getTime() / 1000);
+          unixEl.textContent = String(secs);
+          utcEl.textContent = new Date(secs * 1000).toUTCString();
+
+          const period = currentPeriod();
+          const divisible = secs % period === 0;
+          if (divisible) {
+            statusEl.className = 'ok';
+            statusEl.textContent = `✓ On a ${periodLabel()} boundary — valid for /${endpointPath()}`;
+          } else {
+            statusEl.className = 'warn';
+            statusEl.textContent = `⚠ Not divisible by ${period}. “Snap to boundary” to fix.`;
+          }
+
+          linkEl.href = `https://prices.runescape.wiki/api/v2/osrs/${endpointPath()}?timestamp=${secs}`;
+        }
+
+        function snapToBoundary() {
+          if (!dtInput.value) return;
+          const d = new Date(dtInput.value);
+          if (isNaN(d.getTime())) return;
+          const secs = Math.floor(d.getTime() / 1000);
+          const period = currentPeriod();
+          const snapped = secs - (secs % period); // floor to start of period
+          dtInput.value = toLocalInput(new Date(snapped * 1000));
+          recompute();
+        }
+
+        function useNow() {
+          dtInput.value = toLocalInput(new Date());
+          snapToBoundary();
+        }
+
+        // Toggle visibility
+        launcher.addEventListener('click', () => {
+          launcher.hidden = true;
+          panel.hidden = false;
+          if (!dtInput.value) useNow();
+        });
+        closeBtn.addEventListener('click', () => {
+          panel.hidden = true;
+          launcher.hidden = false;
+        });
+
+        // Window changes update the datetime picker step + re-validate
+        winSel.addEventListener('change', () => {
+          dtInput.step = String(currentPeriod());
+          recompute();
+        });
+
+        dtInput.addEventListener('input', recompute);
+        snapBtn.addEventListener('click', snapToBoundary);
+        nowBtn.addEventListener('click', useNow);
+
+        copyBtn.disabled = true;
+        copyBtn.addEventListener('click', async () => {
+          const t = unixEl.textContent;
+          if (!t || t === '—') return;
+          try {
+            await navigator.clipboard.writeText(t);
+            const prev = copyBtn.textContent;
+            copyBtn.textContent = 'Copied!';
+            setTimeout(() => (copyBtn.textContent = prev), 1200);
+          } catch {
+            // Clipboard may be unavailable (e.g. insecure context) — fall back to selecting the value
+            const range = document.createRange();
+            range.selectNode(unixEl);
+            getSelection().removeAllRanges();
+            getSelection().addRange(range);
+          }
+        });
+
+        // Sync the datetime picker granularity with the selected endpoint
+        dtInput.step = String(currentPeriod());
+      })();
+    </script>
+  </body>
+</html>
+

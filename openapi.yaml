@@ -1,0 +1,698 @@
+openapi: 3.0.3
+
+info:
+  title: RuneScape Wiki Real-time Prices API
+  version: 2.0.0
+  description: |
+    Community real-time Grand Exchange pricing API published by the OSRS Wiki in partnership
+    with [RuneLite](https://runelite.net/). All prices are sourced from live trade data and are
+    aggregated, averaged, and exposed through the endpoints documented below.
+
+    # Base URL
+
+    `https://prices.runescape.wiki/api/v2/osrs`
+
+    # Acceptable use policy
+
+    Within reason, the wiki wants people to use these APIs as much as they need to build cool
+    projects and tools. Endpoints are **not** explicitly rate-limited and responses are cached at
+    multiple levels. However, the wiki reserves the right to limit access to anyone whose usage is
+    so frequent that it threatens the stability of the entire API. For Grand Exchange prices that
+    would typically mean **multiple large queries per second for a sustained period**.
+
+    # Set a descriptive `User-Agent`!
+
+    This is the **only** thing the wiki asks. If you are using automated tooling to scrape these
+    APIs, please set a `User-Agent` header that describes what you are using it for and, if you are
+    willing, some sort of contact info (email or Discord). An awesome example would be:
+
+    ```
+    User-Agent: volume_tracker - @ThisIsMyUsername on Discord
+    ```
+
+    The following default user-agents are **pre-emptively blocked**:
+
+    - `python-requests`
+    - `Python-urllib`
+    - `Apache-HttpClient`
+    - `RestSharp`
+    - `Java/{version}`
+    - `curl/{version}`
+
+    Note that you can still use these libraries — just override the default `User-Agent`.
+
+    # Important notes
+
+    - All prices returned by the API may exceed what can be supported by **32-bit integers**.
+      Always use a 64-bit integer (or float) for price fields.
+    - Average prices may include decimal points (represented here as JSON numbers).
+    - If an item has never been traded it will not appear in the response.
+    - If no instant-buy has ever been seen, `high` and `lowTime` will be `null`
+      (and similarly for `low` / `lowTime`).
+
+    # Reference data
+
+    Item IDs are documented on the wiki at
+    [Module:GEIDs/data.json](https://oldschool.runescape.wiki/w/Module:GEIDs/data.json).
+    Use the [`/mapping`](#/mapping/getMapping) endpoint to resolve IDs to item names and metadata.
+
+  contact:
+    name: OSRS Wiki / Real-time Prices API
+    url: https://oldschool.runescape.wiki/w/RuneScape:Real-time_Prices
+    email: unknown@runescape.wiki
+  license:
+    name: Informational — data sourced from the OSRS Wiki
+    url: https://oldschool.runescape.wiki/w/RuneScape:Real-time_Prices
+  x-secondary-description: |
+    Talk to us in the `#api-discussion` channel on the
+    [OSRS Wiki Discord](https://discord.gg/runescapewiki) if you are building a real-time pipeline.
+
+externalDocs:
+  description: Official API documentation on the OSRS Wiki
+  url: https://oldschool.runescape.wiki/w/RuneScape:Real-time_Prices
+
+servers:
+  - url: https://prices.runescape.wiki/api/v2/osrs
+    description: Production (OSRS / Old School RuneScape)
+
+tags:
+  - name: Latest
+    description: Most recent high/low transaction prices.
+  - name: Mapping
+    description: Static item metadata (name, id, examine, limits, value, icon).
+  - name: Aggregates
+    description: Time-windowed averages and traded volumes (5-minute, 1-hour, 6-hour, 24-hour).
+  - name: Timeseries
+    description: Historical high/low series for a single item over a lookback window.
+
+security: []
+
+paths:
+  /latest:
+    get:
+      tags: [Latest]
+      operationId: getLatestPrices
+      summary: Get the latest high/low prices for all items (or a single item)
+      description: |
+        Returns the latest instant-buy (`high`) and instant-sell (`low`) prices for every item the
+        wiki has data on, along with the Unix timestamp of each transaction.
+
+        The response is a map keyed by item ID. If an item has never been traded it will be absent.
+        If no instant-buy has ever been seen, `high` and `highTime` will be `null` (and similarly
+        for `low` / `lowTime`).
+
+        > ⚠️ **There is almost no scenario where you should use the `id` parameter to loop over
+        > every item.** If you need the prices for all ~3700 items, do **not** send ~3700 requests —
+        > just call `/latest` without `id`. It will use roughly 100× fewer resources on both sides.
+      parameters:
+        - $ref: '#/components/parameters/ItemIdQuery'
+      responses:
+        '200':
+          description: Latest prices keyed by item ID.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LatestPriceResponse'
+              example:
+                data:
+                  "4151":
+                    high: 990940
+                    highTime: 1785026591
+                    low: 975000
+                    lowTime: 1785026582
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/ForbiddenUserAgent'
+
+  /mapping:
+    get:
+      tags: [Mapping]
+      operationId: getMapping
+      summary: Get item metadata (name, id, examine, alch values, buy limit, icon)
+      description: |
+        Returns an array of objects describing every tradeable item: name, id, examine text,
+        members status, low-alchemy and high-alchemy values, Grand Exchange buy limit, store value,
+        and the icon file name used on the wiki.
+
+        The response is **not** keyed — it is a plain JSON array. There are no query parameters.
+      responses:
+        '200':
+          description: Array of item metadata objects.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ItemMapping'
+              example:
+                - examine: "Fabulously ancient mage protection enchanted in the 3rd Age."
+                  id: 10344
+                  members: true
+                  lowalch: 20200
+                  limit: 8
+                  value: 50500
+                  highalch: 30300
+                  icon: "3rd age amulet.png"
+                  name: "3rd age amulet"
+                - examine: "A powerful staff."
+                  id: 22647
+                  members: true
+                  lowalch: 120000
+                  limit: 10
+                  value: 300000
+                  highalch: 180000
+                  icon: "Zuriel's staff.png"
+                  name: "Zuriel's staff"
+        '403':
+          $ref: '#/components/responses/ForbiddenUserAgent'
+
+  /5m:
+    get:
+      tags: [Aggregates]
+      operationId: get5MinutePrices
+      summary: Get 5-minute average prices and traded volumes
+      description: |
+        Returns the 5-minute average of item high (`avgHighPrice`) and low (`avgLowPrice`) prices,
+        as well as the number traded on each side (`highPriceVolume`, `lowPriceVolume`).
+
+        The response is a map keyed by item ID, plus a top-level `timestamp` field indicating the
+        **beginning** of the 5-minute block the data is from.
+      parameters:
+        - $ref: '#/components/parameters/TimestampQuery'
+      responses:
+        '200':
+          description: 5-minute averages and volumes keyed by item ID.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AggregatedPriceResponse'
+              example:
+                data:
+                  "2":
+                    avgHighPrice: 235
+                    highPriceVolume: 58112
+                    avgLowPrice: 229
+                    lowPriceVolume: 24284
+                  "4151":
+                    avgHighPrice: 990500
+                    highPriceVolume: 124
+                    avgLowPrice: 980000
+                    lowPriceVolume: 89
+                timestamp: 1785004800
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/ForbiddenUserAgent'
+
+  /1h:
+    get:
+      tags: [Aggregates]
+      operationId: get1HourPrices
+      summary: Get 1-hour average prices and traded volumes
+      description: |
+        Returns the 1-hour average of item high (`avgHighPrice`) and low (`avgLowPrice`) prices,
+        as well as the number traded on each side (`highPriceVolume`, `lowPriceVolume`).
+
+        The response is a map keyed by item ID, plus a top-level `timestamp` field indicating the
+        **beginning** of the 1-hour block the data is from.
+      parameters:
+        - $ref: '#/components/parameters/TimestampQueryHourly'
+      responses:
+        '200':
+          description: 1-hour averages and volumes keyed by item ID.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AggregatedPriceResponse'
+              example:
+                data:
+                  "2":
+                    avgHighPrice: 237
+                    highPriceVolume: 745491
+                    avgLowPrice: 232
+                    lowPriceVolume: 359376
+                timestamp: 1785004800
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/ForbiddenUserAgent'
+
+  /6h:
+    get:
+      tags: [Aggregates]
+      operationId: get6HourPrices
+      summary: Get 6-hour average prices and traded volumes
+      description: |
+        Returns the 6-hour average of item high (`avgHighPrice`) and low (`avgLowPrice`) prices,
+        as well as the number traded on each side (`highPriceVolume`, `lowPriceVolume`).
+
+        The response is a map keyed by item ID, plus a top-level `timestamp` field indicating the
+        **beginning** of the 6-hour block the data is from.
+      parameters:
+        - $ref: '#/components/parameters/TimestampQuery6h'
+      responses:
+        '200':
+          description: 6-hour averages and volumes keyed by item ID.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AggregatedPriceResponse'
+              example:
+                data:
+                  "2":
+                    avgHighPrice: 235
+                    highPriceVolume: 5220294
+                    avgLowPrice: 230
+                    lowPriceVolume: 1748230
+                timestamp: 1785002400
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/ForbiddenUserAgent'
+
+  /24h:
+    get:
+      tags: [Aggregates]
+      operationId: get24HourPrices
+      summary: Get 24-hour average prices and traded volumes
+      description: |
+        Returns the 24-hour average of item high (`avgHighPrice`) and low (`avgLowPrice`) prices,
+        as well as the number traded on each side (`highPriceVolume`, `lowPriceVolume`).
+
+        The response is a map keyed by item ID, plus a top-level `timestamp` field indicating the
+        **beginning** of the 24-hour (UTC day-aligned) block the data is from.
+      parameters:
+        - $ref: '#/components/parameters/TimestampQuery24h'
+      responses:
+        '200':
+          description: 24-hour averages and volumes keyed by item ID.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AggregatedPriceResponse'
+              example:
+                data:
+                  "2":
+                    avgHighPrice: 234
+                    highPriceVolume: 21384790
+                    avgLowPrice: 229
+                    lowPriceVolume: 7473690
+                timestamp: 1784937600
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/ForbiddenUserAgent'
+
+  /timeseries:
+    get:
+      tags: [Timeseries]
+      operationId: getTimeseries
+      summary: Get a historical high/low time-series for a single item
+      description: |
+        Returns a list of high/low price samples for a single item over a fixed lookback window.
+
+        The endpoint additionally returns the `startTimestamp`, `endTimestamp`, and a `timestep`
+        (in seconds) that the samples are spaced by.
+
+        > ⚠️ The timestep returned by this endpoint is **not guaranteed** and may change without
+        > prior warning. Always read `timestep` from the response rather than hard-coding a value.
+      parameters:
+        - $ref: '#/components/parameters/ItemIdQueryRequired'
+        - $ref: '#/components/parameters/LookbackQuery'
+      responses:
+        '200':
+          description: Time-series samples plus lookback window metadata.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimeseriesResponse'
+              example:
+                data:
+                  - timestamp: 1785004800
+                    avgHighPrice: 996170
+                    avgLowPrice: 983213
+                    highPriceVolume: 10
+                    lowPriceVolume: 5
+                  - timestamp: 1785005100
+                    avgHighPrice: 999016
+                    avgLowPrice: 979901
+                    highPriceVolume: 6
+                    lowPriceVolume: 7
+                itemId: 4151
+                startTimestamp: 1785004800
+                endTimestamp: 1785026400
+                timestep: 300
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/ForbiddenUserAgent'
+
+components:
+
+  parameters:
+
+    ItemIdQuery:
+      name: id
+      in: query
+      description: |
+        Optional item ID. If provided, the response will contain only the entry for this item.
+        Example: `id=4151` (Abyssal whip).
+
+        **Do not** use this parameter to loop over every item — call the endpoint without `id`
+        instead to fetch all items in a single request.
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+        example: 4151
+
+    ItemIdQueryRequired:
+      name: id
+      in: query
+      description: "Item ID to return a time-series for. Example: `id=4151` (Abyssal whip)."
+      required: true
+      schema:
+        type: integer
+        minimum: 1
+        example: 4151
+
+    TimestampQuery:
+      name: timestamp
+      in: query
+      description: |
+        Optional Unix timestamp for the **beginning** of the 5-minute period to return.
+        If provided, must be divisible by `300` (i.e. an exact 5-minute boundary), otherwise the
+        API returns `{"error":"timestamp must be divisible by 300"}`.
+      required: false
+      schema:
+        type: integer
+        minimum: 0
+        example: 1785004800
+
+    TimestampQueryHourly:
+      name: timestamp
+      in: query
+      description: |
+        Optional Unix timestamp for the **beginning** of the 1-hour period to return.
+        If provided, must be divisible by `3600` (i.e. an exact 1-hour boundary), otherwise the
+        API returns `{"error":"timestamp must be divisible by 3600"}`.
+      required: false
+      schema:
+        type: integer
+        minimum: 0
+        example: 1785004800
+
+    TimestampQuery6h:
+      name: timestamp
+      in: query
+      description: |
+        Optional Unix timestamp for the **beginning** of the 6-hour period to return.
+        If provided, must be divisible by `21600` (i.e. an exact 6-hour boundary), otherwise the
+        API returns `{"error":"timestamp must be divisible by 21600"}`.
+      required: false
+      schema:
+        type: integer
+        minimum: 0
+        example: 1785002400
+
+    TimestampQuery24h:
+      name: timestamp
+      in: query
+      description: |
+        Optional Unix timestamp for the **beginning** of the 24-hour period to return.
+        If provided, must be divisible by `86400` (i.e. an exact UTC-day boundary), otherwise the
+        API returns `{"error":"timestamp must be divisible by 86400"}`.
+      required: false
+      schema:
+        type: integer
+        minimum: 0
+        example: 1784937600
+
+    LookbackQuery:
+      name: lookback
+      in: query
+      description: Lookback window for the time-series.
+      required: true
+      schema:
+        type: string
+        enum: ['6h', '24h', '7d', '30d', '6m', '1y']
+        example: '6h'
+      examples:
+        sixHours:
+          value: '6h'
+          summary: Last 6 hours
+        twentyFourHours:
+          value: '24h'
+          summary: Last 24 hours
+        sevenDays:
+          value: '7d'
+          summary: Last 7 days
+        thirtyDays:
+          value: '30d'
+          summary: Last 30 days
+        sixMonths:
+          value: '6m'
+          summary: Last 6 months
+        oneYear:
+          value: '1y'
+          summary: Last year
+
+  responses:
+
+    BadRequest:
+      description: Malformed or invalid query parameter.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            timestampNotDivisible:
+              value:
+                error: "timestamp must be divisible by 300"
+            missingRequired:
+              value:
+                error: "Missing required parameter: id"
+
+    ForbiddenUserAgent:
+      description: |
+        The request was rejected because the `User-Agent` matched a blocked default
+        (e.g. `python-requests`, `curl/8.x`, `Java/17`, etc.). Set a descriptive `User-Agent`
+        header that identifies your tool and contact info.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          example:
+            error: "Blocked: default user-agent. Please set a descriptive User-Agent header."
+
+  schemas:
+
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: string
+          description: Human-readable error message.
+      additionalProperties: false
+
+    LatestPriceEntry:
+      type: object
+      description: Latest high/low transaction prices for a single item.
+      additionalProperties: false
+      properties:
+        high:
+          type: integer
+          format: int64
+          nullable: true
+          description: Most recent instant-buy price. `null` if never seen. May exceed 2^31.
+          example: 990940
+        highTime:
+          type: integer
+          format: int64
+          nullable: true
+          description: Unix timestamp (seconds) of the most recent instant-buy transaction. `null` if never seen.
+          example: 1785026591
+        low:
+          type: integer
+          format: int64
+          nullable: true
+          description: Most recent instant-sell price. `null` if never seen. May exceed 2^31.
+          example: 975000
+        lowTime:
+          type: integer
+          format: int64
+          nullable: true
+          description: Unix timestamp (seconds) of the most recent instant-sell transaction. `null` if never seen.
+          example: 1785026582
+
+    LatestPriceResponse:
+      type: object
+      required: [data]
+      properties:
+        data:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/LatestPriceEntry'
+          description: Map of item ID (as a string key) to its latest price entry.
+      additionalProperties: false
+
+    AggregatedPriceEntry:
+      type: object
+      description: Average prices and traded volumes for a single item over an aggregation window.
+      additionalProperties: false
+      properties:
+        avgHighPrice:
+          type: number
+          nullable: true
+          description: Average instant-buy price over the window. `null` if no high trades occurred. May include decimals.
+          example: 235
+        highPriceVolume:
+          type: integer
+          format: int64
+          nullable: true
+          description: Total quantity traded via instant-buy over the window.
+          example: 58112
+        avgLowPrice:
+          type: number
+          nullable: true
+          description: Average instant-sell price over the window. `null` if no low trades occurred. May include decimals.
+          example: 229
+        lowPriceVolume:
+          type: integer
+          format: int64
+          nullable: true
+          description: Total quantity traded via instant-sell over the window.
+          example: 24284
+
+    AggregatedPriceResponse:
+      type: object
+      required: [data, timestamp]
+      properties:
+        data:
+          type: object
+          additionalProperties:
+            $ref: '#/components/schemas/AggregatedPriceEntry'
+          description: Map of item ID (as a string key) to its aggregated price entry.
+        timestamp:
+          type: integer
+          format: int64
+          description: Unix timestamp (seconds) marking the **beginning** of the aggregated window.
+          example: 1785004800
+      additionalProperties: false
+
+    TimeseriesSample:
+      type: object
+      description: A single high/low sample in a time-series.
+      required: [timestamp]
+      additionalProperties: false
+      properties:
+        timestamp:
+          type: integer
+          format: int64
+          description: Unix timestamp (seconds) at which this sample was recorded.
+          example: 1785004800
+        avgHighPrice:
+          type: number
+          nullable: true
+          description: Average instant-buy price for the sample. `null` if no high trades occurred. May include decimals.
+          example: 996170
+        avgLowPrice:
+          type: number
+          nullable: true
+          description: Average instant-sell price for the sample. `null` if no low trades occurred. May include decimals.
+          example: 983213
+        highPriceVolume:
+          type: integer
+          format: int64
+          nullable: true
+          description: Quantity traded via instant-buy for the sample.
+          example: 10
+        lowPriceVolume:
+          type: integer
+          format: int64
+          nullable: true
+          description: Quantity traded via instant-sell for the sample.
+          example: 5
+
+    TimeseriesResponse:
+      type: object
+      required: [data, itemId, startTimestamp, endTimestamp, timestep]
+      additionalProperties: false
+      properties:
+        data:
+          type: array
+          description: Time-series samples, ordered oldest to newest.
+          items:
+            $ref: '#/components/schemas/TimeseriesSample'
+        itemId:
+          type: integer
+          description: The item ID this series belongs to.
+          example: 4151
+        startTimestamp:
+          type: integer
+          format: int64
+          description: Unix timestamp (seconds) marking the start of the lookback window.
+          example: 1785004800
+        endTimestamp:
+          type: integer
+          format: int64
+          description: Unix timestamp (seconds) marking the end of the lookback window.
+          example: 1785026400
+        timestep:
+          type: integer
+          description: Spacing between samples in seconds. **Not guaranteed** — read it from the response.
+          example: 300
+
+    ItemMapping:
+      type: object
+      description: Static metadata describing a single tradeable item.
+      additionalProperties: false
+      required: [id, name]
+      properties:
+        examine:
+          type: string
+          description: In-game examine text for the item.
+          example: "Fabulously ancient mage protection enchanted in the 3rd Age."
+        id:
+          type: integer
+          format: int32
+          description: Unique item ID.
+          example: 10344
+        members:
+          type: boolean
+          description: Whether the item is members-only.
+          example: true
+        lowalch:
+          type: integer
+          format: int32
+          nullable: true
+          description: Low-alchemy value. May be `null`.
+          example: 20200
+        highalch:
+          type: integer
+          format: int32
+          nullable: true
+          description: High-alchemy value. May be `null`.
+          example: 30300
+        limit:
+          type: integer
+          format: int32
+          nullable: true
+          description: Grand Exchange buy limit per 4 hours. May be `null`.
+          example: 8
+        value:
+          type: integer
+          format: int32
+          nullable: true
+          description: General store / wiki value. May be `null`.
+          example: 50500
+        icon:
+          type: string
+          description: Wiki icon file name (without the `File:` namespace prefix).
+          example: "3rd age amulet.png"
+        name:
+          type: string
+          description: Item display name.
+          example: "3rd age amulet"
