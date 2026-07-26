@@ -54,7 +54,7 @@ info:
 
     Item IDs are documented on the wiki at
     [Module:GEIDs/data.json](https://oldschool.runescape.wiki/w/Module:GEIDs/data.json).
-    Use the [`/mapping`](#/mapping/getMapping) endpoint to resolve IDs to item names and metadata.
+    Use the [`/mapping`](#tag/mapping/GET/mapping) endpoint to resolve IDs to item names and metadata.
 
   contact:
     name: OSRS Wiki / Real-time Prices API
