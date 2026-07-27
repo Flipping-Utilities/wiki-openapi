@@ -6,7 +6,7 @@
     <title>RuneScape Wiki Real-time Prices API — Scalar Reference</title>
     <meta
       name="description"
-      content="Interactive OpenAPI reference and playground for the RuneScape Wiki real-time Grand Exchange prices API (OSRS)."
+      content="Interactive OpenAPI reference and playground for the RuneScape Wiki real-time Grand Exchange prices API (OSRS and RS3)."
     />
     <link rel="icon" type="image/x-icon" href="./favicon.ico" />
     <style>
@@ -238,7 +238,16 @@
         rel="noopener noreferrer"
         title="Official API documentation on the OSRS Wiki"
       >
-        Wiki docs &#8599;
+        OSRS docs &#8599;
+      </a>
+      <a
+        class="ts-fab ts-fab--ghost"
+        href="https://runescape.wiki/w/RuneScape:Real-time_Prices"
+        target="_blank"
+        rel="noopener noreferrer"
+        title="Official API documentation on the RS3 Wiki"
+      >
+        RS3 docs &#8599;
       </a>
       <button id="ts-launcher" class="ts-fab" type="button">⏱ Timestamp helper</button>
     </div>
@@ -250,12 +259,20 @@
       </header>
       <div class="ts-body">
         <label>
+          Game
+          <select id="ts-game">
+            <option value="osrs">OSRS — Old School RuneScape</option>
+            <option value="rs">RS3 — RuneScape 3</option>
+          </select>
+        </label>
+
+        <label>
           Endpoint
           <select id="ts-window">
-            <option value="300">/5m — 5-minute (÷ 300)</option>
-            <option value="3600">/1h — 1-hour (÷ 3600)</option>
-            <option value="21600">/6h — 6-hour (÷ 21600)</option>
-            <option value="86400">/24h — 24-hour (÷ 86400)</option>
+            <option value="300" data-games="osrs,rs">/5m — 5-minute (÷ 300)</option>
+            <option value="3600" data-games="osrs,rs">/1h — 1-hour (÷ 3600)</option>
+            <option value="21600" data-games="osrs">/6h — 6-hour (÷ 21600) — OSRS only</option>
+            <option value="86400" data-games="osrs">/24h — 24-hour (÷ 86400) — OSRS only</option>
           </select>
         </label>
 
@@ -299,6 +316,7 @@
         const launcher = document.getElementById('ts-launcher');
         const panel = document.getElementById('ts-panel');
         const closeBtn = document.getElementById('ts-close');
+        const gameSel = document.getElementById('ts-game');
         const winSel = document.getElementById('ts-window');
         const dtInput = document.getElementById('ts-dt');
         const nowBtn = document.getElementById('ts-now');
@@ -312,6 +330,10 @@
         const pad = (n) => String(n).padStart(2, '0');
         const toLocalInput = (d) =>
           `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+
+        function currentGame() {
+          return gameSel.value;
+        }
 
         function currentPeriod() {
           return Number(winSel.value);
@@ -333,6 +355,22 @@
           if (p === 21600) return '6-hour';
           if (p === 86400) return '24-hour';
           return '';
+        }
+
+        // Filter the window dropdown based on the selected game (RS3 has no /6h or /24h).
+        function syncWindowOptions() {
+          const game = currentGame();
+          let firstVisible = null;
+          for (const opt of winSel.options) {
+            const supported = opt.dataset.games ? opt.dataset.games.split(',') : [];
+            const visible = supported.includes(game);
+            opt.hidden = !visible;
+            if (visible && !firstVisible) firstVisible = opt;
+          }
+          // If the currently selected window is hidden for this game, fall back.
+          if (winSel.selectedOptions[0] && winSel.selectedOptions[0].hidden && firstVisible) {
+            winSel.value = firstVisible.value;
+          }
         }
 
         function recompute() {
@@ -368,7 +406,7 @@
             statusEl.textContent = `⚠ Not divisible by ${period}. “Snap to boundary” to fix.`;
           }
 
-          linkEl.href = `https://prices.runescape.wiki/api/v2/osrs/${endpointPath()}?timestamp=${secs}`;
+          linkEl.href = `https://prices.runescape.wiki/api/v2/${currentGame()}/${endpointPath()}?timestamp=${secs}`;
         }
 
         function snapToBoundary() {
@@ -404,6 +442,13 @@
           recompute();
         });
 
+        // Game changes filter the available windows (RS3 has no /6h or /24h) + re-validate
+        gameSel.addEventListener('change', () => {
+          syncWindowOptions();
+          dtInput.step = String(currentPeriod());
+          recompute();
+        });
+
         dtInput.addEventListener('input', recompute);
         snapBtn.addEventListener('click', snapToBoundary);
         nowBtn.addEventListener('click', useNow);
@@ -427,6 +472,7 @@
         });
 
         // Sync the datetime picker granularity with the selected endpoint
+        syncWindowOptions();
         dtInput.step = String(currentPeriod());
       })();
     </script>

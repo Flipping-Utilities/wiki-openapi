@@ -2,27 +2,32 @@ openapi: 3.0.3
 
 info:
   title: RuneScape Wiki Real-time Prices API
-  version: 2.0.0
+  version: 3.0.0
   description: |
-    Community real-time Grand Exchange pricing API published by the OSRS Wiki in partnership
-    with [RuneLite](https://runelite.net/). All prices are sourced from live trade data and are
-    aggregated, averaged, and exposed through the endpoints documented below.
+    Community real-time Grand Exchange pricing APIs published by the RuneScape Wikis, in
+    partnership with [RuneLite](https://runelite.net/) for OSRS and the RuneScape Wiki community
+    for RS3. All prices are sourced from live trade data and are aggregated, averaged, and exposed
+    through the endpoints documented below.
 
-    # Base URL
+    # Base URLs
 
-    `https://prices.runescape.wiki/api/v2/osrs`
+    - **OSRS (Old School RuneScape):** `https://prices.runescape.wiki/api/v2/osrs`
+    - **RS3 (RuneScape 3):** `https://prices.runescape.wiki/api/v2/rs`
+
+    Both games share the same response shapes for the endpoints they have in common. RS3 exposes a
+    **subset** of the OSRS endpoints — it has no `/6h` or `/24h` aggregates.
 
     # Acceptable use policy
 
-    Within reason, the wiki wants people to use these APIs as much as they need to build cool
+    Within reason, the wikis want people to use these APIs as much as they need to build cool
     projects and tools. Endpoints are **not** explicitly rate-limited and responses are cached at
-    multiple levels. However, the wiki reserves the right to limit access to anyone whose usage is
+    multiple levels. However, the wikis reserve the right to limit access to anyone whose usage is
     so frequent that it threatens the stability of the entire API. For Grand Exchange prices that
     would typically mean **multiple large queries per second for a sustained period**.
 
     # Set a descriptive `User-Agent`!
 
-    This is the **only** thing the wiki asks. If you are using automated tooling to scrape these
+    This is the **only** thing the wikis ask. If you are using automated tooling to scrape these
     APIs, please set a `User-Agent` header that describes what you are using it for and, if you are
     willing, some sort of contact info (email or Discord). An awesome example would be:
 
@@ -47,55 +52,65 @@ info:
       Always use a 64-bit integer (or float) for price fields.
     - Average prices may include decimal points (represented here as JSON numbers).
     - If an item has never been traded it will not appear in the response.
-    - If no instant-buy has ever been seen, `high` and `lowTime` will be `null`
+    - If no instant-buy has ever been seen, `high` and `highTime` will be `null`
       (and similarly for `low` / `lowTime`).
 
     # Reference data
 
-    Item IDs are documented on the wiki at
-    [Module:GEIDs/data.json](https://oldschool.runescape.wiki/w/Module:GEIDs/data.json).
-    Use the [`/mapping`](#tag/mapping/GET/mapping) endpoint to resolve IDs to item names and metadata.
+    Item IDs are documented on the wikis:
+    - OSRS: [Module:GEIDs/data.json](https://oldschool.runescape.wiki/w/Module:GEIDs/data.json)
+    - RS3: [Module:GEIDs/data.json](https://runescape.wiki/w/Module:GEIDs/data.json)
+
+    Use the [`/mapping`](#tag/mapping) endpoints to resolve IDs to item names and metadata.
 
   contact:
-    name: OSRS Wiki / Real-time Prices API
+    name: RuneScape Wikis / Real-time Prices API
     url: https://oldschool.runescape.wiki/w/RuneScape:Real-time_Prices
     email: unknown@runescape.wiki
   license:
-    name: Informational — data sourced from the OSRS Wiki
+    name: Informational — data sourced from the RuneScape Wikis
     url: https://oldschool.runescape.wiki/w/RuneScape:Real-time_Prices
   x-secondary-description: |
     Talk to us in the `#api-discussion` channel on the
     [OSRS Wiki Discord](https://discord.gg/runescapewiki) if you are building a real-time pipeline.
 
 externalDocs:
-  description: Official API documentation on the OSRS Wiki
+  description: Official API documentation (OSRS Wiki)
   url: https://oldschool.runescape.wiki/w/RuneScape:Real-time_Prices
 
 servers:
-  - url: https://prices.runescape.wiki/api/v2/osrs
-    description: Production (OSRS / Old School RuneScape)
+  - url: https://prices.runescape.wiki
+    description: Production (RuneScape Wikis real-time prices)
 
 tags:
-  - name: Latest
-    description: Most recent high/low transaction prices.
-  - name: Mapping
-    description: Static item metadata (name, id, examine, limits, value, icon).
-  - name: Aggregates
-    description: Time-windowed averages and traded volumes (5-minute, 1-hour, 6-hour, 24-hour).
-  - name: Timeseries
-    description: Historical high/low series for a single item over a lookback window.
+  - name: OSRS / Latest
+    description: OSRS — most recent high/low transaction prices.
+  - name: OSRS / Mapping
+    description: OSRS — static item metadata (name, id, examine, limits, value, icon).
+  - name: OSRS / Aggregates
+    description: OSRS — time-windowed averages and traded volumes (5-minute, 1-hour, 6-hour, 24-hour).
+  - name: OSRS / Timeseries
+    description: OSRS — historical high/low series for a single item over a lookback window.
+  - name: RS3 / Latest
+    description: RS3 — most recent high/low transaction prices.
+  - name: RS3 / Mapping
+    description: RS3 — static item metadata (name, id, examine, limits, value, icon).
+  - name: RS3 / Aggregates
+    description: RS3 — time-windowed averages and traded volumes (5-minute, 1-hour).
+  - name: RS3 / Timeseries
+    description: RS3 — historical high/low series for a single item over a lookback window.
 
 security: []
 
 paths:
-  /latest:
+  /api/v2/osrs/latest:
     get:
-      tags: [Latest]
-      operationId: getLatestPrices
-      summary: Get the latest high/low prices for all items (or a single item)
+      tags: [OSRS / Latest]
+      operationId: getLatestPricesOsrs
+      summary: OSRS — Get the latest high/low prices for all items (or a single item)
       description: |
         Returns the latest instant-buy (`high`) and instant-sell (`low`) prices for every item the
-        wiki has data on, along with the Unix timestamp of each transaction.
+        OSRS Wiki has data on, along with the Unix timestamp of each transaction.
 
         The response is a map keyed by item ID. If an item has never been traded it will be absent.
         If no instant-buy has ever been seen, `high` and `highTime` will be `null` (and similarly
@@ -125,13 +140,13 @@ paths:
         '403':
           $ref: '#/components/responses/ForbiddenUserAgent'
 
-  /mapping:
+  /api/v2/osrs/mapping:
     get:
-      tags: [Mapping]
-      operationId: getMapping
-      summary: Get item metadata (name, id, examine, alch values, buy limit, icon)
+      tags: [OSRS / Mapping]
+      operationId: getMappingOsrs
+      summary: OSRS — Get item metadata (name, id, examine, alch values, buy limit, icon)
       description: |
-        Returns an array of objects describing every tradeable item: name, id, examine text,
+        Returns an array of objects describing every tradeable OSRS item: name, id, examine text,
         members status, low-alchemy and high-alchemy values, Grand Exchange buy limit, store value,
         and the icon file name used on the wiki.
 
@@ -167,11 +182,11 @@ paths:
         '403':
           $ref: '#/components/responses/ForbiddenUserAgent'
 
-  /5m:
+  /api/v2/osrs/5m:
     get:
-      tags: [Aggregates]
-      operationId: get5MinutePrices
-      summary: Get 5-minute average prices and traded volumes
+      tags: [OSRS / Aggregates]
+      operationId: get5MinutePricesOsrs
+      summary: OSRS — Get 5-minute average prices and traded volumes
       description: |
         Returns the 5-minute average of item high (`avgHighPrice`) and low (`avgLowPrice`) prices,
         as well as the number traded on each side (`highPriceVolume`, `lowPriceVolume`).
@@ -205,11 +220,11 @@ paths:
         '403':
           $ref: '#/components/responses/ForbiddenUserAgent'
 
-  /1h:
+  /api/v2/osrs/1h:
     get:
-      tags: [Aggregates]
-      operationId: get1HourPrices
-      summary: Get 1-hour average prices and traded volumes
+      tags: [OSRS / Aggregates]
+      operationId: get1HourPricesOsrs
+      summary: OSRS — Get 1-hour average prices and traded volumes
       description: |
         Returns the 1-hour average of item high (`avgHighPrice`) and low (`avgLowPrice`) prices,
         as well as the number traded on each side (`highPriceVolume`, `lowPriceVolume`).
@@ -238,17 +253,19 @@ paths:
         '403':
           $ref: '#/components/responses/ForbiddenUserAgent'
 
-  /6h:
+  /api/v2/osrs/6h:
     get:
-      tags: [Aggregates]
-      operationId: get6HourPrices
-      summary: Get 6-hour average prices and traded volumes
+      tags: [OSRS / Aggregates]
+      operationId: get6HourPricesOsrs
+      summary: OSRS — Get 6-hour average prices and traded volumes
       description: |
         Returns the 6-hour average of item high (`avgHighPrice`) and low (`avgLowPrice`) prices,
         as well as the number traded on each side (`highPriceVolume`, `lowPriceVolume`).
 
         The response is a map keyed by item ID, plus a top-level `timestamp` field indicating the
         **beginning** of the 6-hour block the data is from.
+
+        > ℹ️ This endpoint is **OSRS-only** — RS3 does not expose a 6-hour aggregate.
       parameters:
         - $ref: '#/components/parameters/TimestampQuery6h'
       responses:
@@ -271,17 +288,19 @@ paths:
         '403':
           $ref: '#/components/responses/ForbiddenUserAgent'
 
-  /24h:
+  /api/v2/osrs/24h:
     get:
-      tags: [Aggregates]
-      operationId: get24HourPrices
-      summary: Get 24-hour average prices and traded volumes
+      tags: [OSRS / Aggregates]
+      operationId: get24HourPricesOsrs
+      summary: OSRS — Get 24-hour average prices and traded volumes
       description: |
         Returns the 24-hour average of item high (`avgHighPrice`) and low (`avgLowPrice`) prices,
         as well as the number traded on each side (`highPriceVolume`, `lowPriceVolume`).
 
         The response is a map keyed by item ID, plus a top-level `timestamp` field indicating the
         **beginning** of the 24-hour (UTC day-aligned) block the data is from.
+
+        > ℹ️ This endpoint is **OSRS-only** — RS3 does not expose a 24-hour aggregate.
       parameters:
         - $ref: '#/components/parameters/TimestampQuery24h'
       responses:
@@ -304,11 +323,11 @@ paths:
         '403':
           $ref: '#/components/responses/ForbiddenUserAgent'
 
-  /timeseries:
+  /api/v2/osrs/timeseries:
     get:
-      tags: [Timeseries]
-      operationId: getTimeseries
-      summary: Get a historical high/low time-series for a single item
+      tags: [OSRS / Timeseries]
+      operationId: getTimeseriesOsrs
+      summary: OSRS — Get a historical high/low time-series for a single item
       description: |
         Returns a list of high/low price samples for a single item over a fixed lookback window.
 
@@ -340,6 +359,195 @@ paths:
                     highPriceVolume: 6
                     lowPriceVolume: 7
                 itemId: 4151
+                startTimestamp: 1785004800
+                endTimestamp: 1785026400
+                timestep: 300
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/ForbiddenUserAgent'
+
+  /api/v2/rs/latest:
+    get:
+      tags: [RS3 / Latest]
+      operationId: getLatestPricesRs
+      summary: RS3 — Get the latest high/low prices for all items (or a single item)
+      description: |
+        Returns the latest instant-buy (`high`) and instant-sell (`low`) prices for every item the
+        RS3 Wiki has data on, along with the Unix timestamp of each transaction.
+
+        The response is a map keyed by item ID. If an item has never been traded it will be absent.
+        If no instant-buy has ever been seen, `high` and `highTime` will be `null` (and similarly
+        for `low` / `lowTime`).
+
+        > ⚠️ **There is almost no scenario where you should use the `id` parameter to loop over
+        > every item.** If you need the prices for all items, do **not** send thousands of requests
+        > — just call `/latest` without `id`. It will use roughly 100× fewer resources on both sides.
+      parameters:
+        - $ref: '#/components/parameters/ItemIdQuery'
+      responses:
+        '200':
+          description: Latest prices keyed by item ID.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LatestPriceResponse'
+              example:
+                data:
+                  "49430":
+                    high: 320
+                    highTime: 1785026591
+                    low: 318
+                    lowTime: 1785026582
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/ForbiddenUserAgent'
+
+  /api/v2/rs/mapping:
+    get:
+      tags: [RS3 / Mapping]
+      operationId: getMappingRs
+      summary: RS3 — Get item metadata (name, id, examine, alch values, buy limit, icon)
+      description: |
+        Returns an array of objects describing every tradeable RS3 item: name, id, examine text,
+        members status, low-alchemy and high-alchemy values, Grand Exchange buy limit, store value,
+        and the icon file name used on the wiki.
+
+        The response is **not** keyed — it is a plain JSON array. There are no query parameters.
+      responses:
+        '200':
+          description: Array of item metadata objects.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ItemMapping'
+              example:
+                - examine: "A representation of time used by members of the Archaeology Guild."
+                  id: 49430
+                  members: false
+                  lowalch: 20
+                  limit: 50000
+                  value: 50
+                  highalch: 30
+                  icon: "Chronotes.png"
+                  name: "Chronotes"
+                - examine: "Logs cut from a willow tree."
+                  id: 1519
+                  members: false
+                  lowalch: 16
+                  limit: 25000
+                  value: 40
+                  highalch: 24
+                  icon: "Willow logs.png"
+                  name: "Willow logs"
+        '403':
+          $ref: '#/components/responses/ForbiddenUserAgent'
+
+  /api/v2/rs/5m:
+    get:
+      tags: [RS3 / Aggregates]
+      operationId: get5MinutePricesRs
+      summary: RS3 — Get 5-minute average prices and traded volumes
+      description: |
+        Returns the 5-minute average of item high (`avgHighPrice`) and low (`avgLowPrice`) prices,
+        as well as the number traded on each side (`highPriceVolume`, `lowPriceVolume`).
+
+        The response is a map keyed by item ID, plus a top-level `timestamp` field indicating the
+        **beginning** of the 5-minute block the data is from.
+      parameters:
+        - $ref: '#/components/parameters/TimestampQuery'
+      responses:
+        '200':
+          description: 5-minute averages and volumes keyed by item ID.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AggregatedPriceResponse'
+              example:
+                data:
+                  "49430":
+                    avgHighPrice: 319
+                    highPriceVolume: 1240
+                    avgLowPrice: 317
+                    lowPriceVolume: 880
+                timestamp: 1785004800
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/ForbiddenUserAgent'
+
+  /api/v2/rs/1h:
+    get:
+      tags: [RS3 / Aggregates]
+      operationId: get1HourPricesRs
+      summary: RS3 — Get 1-hour average prices and traded volumes
+      description: |
+        Returns the 1-hour average of item high (`avgHighPrice`) and low (`avgLowPrice`) prices,
+        as well as the number traded on each side (`highPriceVolume`, `lowPriceVolume`).
+
+        The response is a map keyed by item ID, plus a top-level `timestamp` field indicating the
+        **beginning** of the 1-hour block the data is from.
+      parameters:
+        - $ref: '#/components/parameters/TimestampQueryHourly'
+      responses:
+        '200':
+          description: 1-hour averages and volumes keyed by item ID.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AggregatedPriceResponse'
+              example:
+                data:
+                  "49430":
+                    avgHighPrice: 318
+                    highPriceVolume: 15210
+                    avgLowPrice: 316
+                    lowPriceVolume: 12044
+                timestamp: 1785004800
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/ForbiddenUserAgent'
+
+  /api/v2/rs/timeseries:
+    get:
+      tags: [RS3 / Timeseries]
+      operationId: getTimeseriesRs
+      summary: RS3 — Get a historical high/low time-series for a single item
+      description: |
+        Returns a list of high/low price samples for a single item over a fixed lookback window.
+
+        The endpoint additionally returns the `startTimestamp`, `endTimestamp`, and a `timestep`
+        (in seconds) that the samples are spaced by.
+
+        > ⚠️ The timestep returned by this endpoint is **not guaranteed** and may change without
+        > prior warning. Always read `timestep` from the response rather than hard-coding a value.
+      parameters:
+        - $ref: '#/components/parameters/ItemIdQueryRequired'
+        - $ref: '#/components/parameters/LookbackQuery'
+      responses:
+        '200':
+          description: Time-series samples plus lookback window metadata.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TimeseriesResponse'
+              example:
+                data:
+                  - timestamp: 1785004800
+                    avgHighPrice: 319
+                    avgLowPrice: 317
+                    highPriceVolume: 1240
+                    lowPriceVolume: 880
+                  - timestamp: 1785005100
+                    avgHighPrice: 320
+                    avgLowPrice: 316
+                    highPriceVolume: 1100
+                    lowPriceVolume: 940
+                itemId: 49430
                 startTimestamp: 1785004800
                 endTimestamp: 1785026400
                 timestep: 300
@@ -410,6 +618,8 @@ components:
         Optional Unix timestamp for the **beginning** of the 6-hour period to return.
         If provided, must be divisible by `21600` (i.e. an exact 6-hour boundary), otherwise the
         API returns `{"error":"timestamp must be divisible by 21600"}`.
+
+        > ℹ️ The 6-hour aggregate is **OSRS-only**.
       required: false
       schema:
         type: integer
@@ -423,6 +633,8 @@ components:
         Optional Unix timestamp for the **beginning** of the 24-hour period to return.
         If provided, must be divisible by `86400` (i.e. an exact UTC-day boundary), otherwise the
         API returns `{"error":"timestamp must be divisible by 86400"}`.
+
+        > ℹ️ The 24-hour aggregate is **OSRS-only**.
       required: false
       schema:
         type: integer
